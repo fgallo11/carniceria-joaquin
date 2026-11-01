@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Club Carnicería Joaquín</title>
+  <link rel="icon" href="/logo.jpg">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="cabecera">
+    <button class="marca" data-accion="ir-inicio" aria-label="Volver al inicio">
+      <img src="/logo.jpg" alt="" width="64" height="64">
+      <span>
+        <span class="marca-grande">Club Joaquín</span>
+        <span class="marca-chica">Beneficios para nuestros clientes</span>
+      </span>
+    </button>
+    <nav class="pestanias" aria-label="Secciones">
+      <button class="pestania" data-accion="ir-inicio" data-pestania="inicio">Inicio</button>
+      <button class="pestania" data-accion="ir-promos" data-pestania="promos">Promociones</button>    </nav>
+  </header>
+  <main id="app"></main>
+  <div id="aviso" class="aviso" role="status" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

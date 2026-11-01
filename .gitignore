@@ -1,0 +1,11 @@
+# Datos de clientes: nunca se suben
+datos/
+
+# Paquete para Windows, se arma con armar_paquete_windows.py
+dist/
+
+# Configuración local
+.claude/
+
+__pycache__/
+*.pyc
