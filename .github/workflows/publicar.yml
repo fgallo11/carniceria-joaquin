@@ -1,0 +1,49 @@
+name: Probar y publicar para Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  probar-y-armar:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Pruebas
+        run: python -m unittest discover -s tests
+      - name: Armar el paquete
+        run: python armar_paquete_windows.py
+      - name: Abrir el paquete en Windows
+        run: python tests/humo_windows.py "dist/Club Carniceria Joaquin.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquete
+          path: dist/Club Carniceria Joaquin.zip
+          if-no-files-found: error
+
+  publicar:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: probar-y-armar
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: paquete
+      - name: Crear la versión
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv "Club Carniceria Joaquin.zip" ClubCarniceriaJoaquin.zip
+          gh release create "$GITHUB_REF_NAME" ClubCarniceriaJoaquin.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Club Carnicería Joaquín $GITHUB_REF_NAME" \
+            --notes "Para Windows 10 u 11 de 64 bits. No hace falta instalar Python. Descargá ClubCarniceriaJoaquin.zip, extraelo en una carpeta propia, como C:\\Club Carniceria Joaquin, y seguí los pasos de LEEME.txt. Al actualizar, conservá la carpeta datos."
