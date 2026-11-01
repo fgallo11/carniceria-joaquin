@@ -254,6 +254,70 @@ class Movimientos(ProgramaBase):
         self.assertEqual(len(self.lista(limite=1)), 1)
 
 
+class Perfil(ProgramaBase):
+    def perfil(self):
+        return self.p.perfil("30123456")
+
+    def test_cliente_sin_visitas(self):
+        p = self.perfil()
+        self.assertEqual(p["estado"]["clave"], "sin_visitas")
+        self.assertEqual((p["comprado"], p["ahorrado"], p["promedio"], p["ultima_visita"]), (0, 0, 0, None))
+        self.assertEqual(p["cliente"]["cumple_dia"], 15)
+        self.assertEqual(p["dias_para_cumple"], (date(2027, 6, 15) - self.dia).days)
+
+    def test_suma_compras_descuentos_y_beneficios(self):
+        self.visita(10000)
+        self.visita(20000)
+        p = self.perfil()
+        self.assertEqual((p["comprado"], p["ahorrado"], p["promedio"]), (29000, 1000, 15000))
+        self.assertEqual((p["primera_visita"], p["ultima_visita"], p["dias_sin_venir"]), ("2026-11-02", "2026-11-02", 0))
+        self.assertEqual([u["nombre"] for u in p["beneficios_usados"]], ["Racha semanal: 2.ª visita"])
+        self.assertEqual(len(p["movimientos"]), 2)
+
+    def test_las_anuladas_no_suman_pero_se_listan(self):
+        visita = self.visita(10000)["visita_id"]
+        self.p.anular_visita(visita)
+        p = self.perfil()
+        self.assertEqual((p["comprado"], p["total_visitas"], p["estado"]["clave"]), (0, 0, "sin_visitas"))
+        self.assertTrue(p["movimientos"][0]["anulada"])
+
+    def test_estado_cambia_con_el_tiempo(self):
+        self.visita()
+        self.assertEqual(self.perfil()["estado"]["clave"], "activo")
+        self.dia += timedelta(weeks=1)
+        self.assertEqual(self.perfil()["estado"]["clave"], "activo")
+        self.dia += timedelta(weeks=1)
+        self.assertEqual(self.perfil()["estado"]["clave"], "en_riesgo")
+        self.dia += timedelta(weeks=1)
+        self.assertEqual(self.perfil()["estado"]["clave"], "inactivo")
+
+    def test_movimientos_solo_de_ese_cliente(self):
+        self.p.crear_cliente({**CLIENTE, "dni": "1301234560"[:8], "nombre": "Otro"})
+        self.visita()
+        self.assertEqual({m["dni"] for m in self.perfil()["movimientos"]}, {"30123456"})
+
+    def test_dni_desconocido(self):
+        with self.assertRaises(ErrorDeUso):
+            self.p.perfil("99999999")
+
+    def test_lista_y_filtros(self):
+        self.p.crear_cliente({**CLIENTE, "dni": "20111222", "nombre": "Juan Gómez"})
+        self.visita(5000)
+        lista = self.p.clientes()
+        self.assertEqual([c["dni"] for c in lista["clientes"]], ["30123456", "20111222"])
+        self.assertEqual((lista["clientes"][0]["visitas"], lista["clientes"][0]["comprado"]), (1, 5000))
+        self.assertEqual(self.p.clientes(texto="gómez")["clientes"][0]["dni"], "20111222")
+        self.assertEqual(self.p.clientes(texto="30.123")["total"], 1)
+        self.assertEqual(self.p.clientes(estado="sin_visitas")["clientes"][0]["dni"], "20111222")
+        self.assertEqual(self.p.clientes(estado="inactivo")["total"], 0)
+        recortada = self.p.clientes(limite=1)
+        self.assertEqual((len(recortada["clientes"]), recortada["total"]), (1, 2))
+
+    def test_cumple_cae_hoy(self):
+        self.dia = date(2026, 6, 15)
+        self.assertEqual(self.perfil()["dias_para_cumple"], 0)
+
+
 class Generales(ProgramaBase):
     def nombres_hoy(self):
         return [g["nombre"] for g in self.p.inicio()["generales"]]

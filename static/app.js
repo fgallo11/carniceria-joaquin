@@ -24,7 +24,7 @@ let temporizador = null;
 
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const conPuntos = (t) => (t ? Number(t).toLocaleString("es-AR", { maximumFractionDigits: 0 }) : "");
-const pesos = (n) => "$ " + conPuntos(n);
+const pesos = (n) => "$ " + Number(n).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 const primerNombre = (nombre) => nombre.split(" ")[0];
 const digitos = (t) => String(t).replace(/\D/g, "");
 const icono = (tipo) => `<svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="${TRAZOS[tipo] ?? TRAZOS.general}"/></svg>`;
@@ -66,7 +66,7 @@ function mostrar(vista, html, datos = {}) {
   estado = { vista, ...datos };
   app.innerHTML = html;
   window.scrollTo(0, 0);
-  const pestania = ["promos", "movimientos", "formulario-movimiento"].includes(vista) ? "promos" : "inicio";
+  const pestania = ["promos", "movimientos", "formulario-movimiento", "clientes", "perfil", "editar-cliente"].includes(vista) ? "promos" : "inicio";
   document.querySelectorAll(".pestania").forEach((b) => {
     const activa = b.dataset.pestania === pestania;
     b.classList.toggle("activa", activa);
@@ -80,7 +80,8 @@ function mostrar(vista, html, datos = {}) {
 // Vuelve solo al inicio para que el próximo cliente no vea la ficha del anterior.
 function reiniciarTemporizador() {
   clearTimeout(temporizador);
-  if (estado.vista === "ficha" || (estado.vista === "resultado" && !estado.conDescuento)) {
+  const seVuelve = ["ficha", "perfil", "clientes", "movimientos"].includes(estado.vista);
+  if (seVuelve || (estado.vista === "resultado" && !estado.conDescuento)) {
     temporizador = setTimeout(irInicio, MINUTOS_SIN_USO * 60000);
   }
 }
@@ -173,7 +174,7 @@ function irFormularioCliente(cliente, dni = "") {
     .map((d) => `<option value="${d}" ${d === c.cumple_dia ? "selected" : ""}>${d}</option>`).join("");
   const opcionesMes = MESES
     .map((m, i) => `<option value="${i + 1}" ${i + 1 === c.cumple_mes ? "selected" : ""}>${m}</option>`).join("");
-  mostrar("formulario-cliente", `
+  mostrar(cliente ? "editar-cliente" : "formulario-cliente", `
     <form class="formulario tarjeta" id="form-cliente" data-id="${cliente ? cliente.id : ""}">
       <h1>${cliente ? "Cambiar datos del cliente" : "Anotar un cliente nuevo"}</h1>
       <label class="campo"><span>Nombre y apellido</span>
@@ -196,7 +197,9 @@ function irFormularioCliente(cliente, dni = "") {
       <p id="error" class="mensaje-error" role="alert"></p>
       <div class="acciones">
         <button class="boton principal" type="submit">Guardar</button>
-        <button class="boton" type="button" data-accion="ir-inicio">Cancelar</button>
+        ${cliente
+          ? `<button class="boton" type="button" data-accion="ver-perfil" data-dni="${esc(cliente.dni)}">Cancelar</button>`
+          : `<button class="boton" type="button" data-accion="ir-inicio">Cancelar</button>`}
       </div>
     </form>`);
 }
@@ -210,7 +213,8 @@ async function guardarCliente(form) {
       ? await api(`/api/clientes/${form.dataset.id}`, "PUT", datos)
       : await api("/api/clientes", "POST", datos);
     avisar("¡Datos guardados!");
-    irFicha(ficha);
+    if (form.dataset.id) irPerfil(ficha.cliente.dni);
+    else irFicha(ficha);
   } catch (e) {
     mostrarError(e.message);
   }
@@ -262,7 +266,6 @@ function irFicha(ficha) {
   mostrar("ficha", `
     <div class="saludo">
       <h1>¡Hola, ${esc(primerNombre(cliente.nombre))}!</h1>
-      <button class="boton discreto" data-accion="editar-cliente">Cambiar datos</button>
     </div>
     <div class="medidores">
       <div class="medidor"><h3>Racha semanal</h3>${semana}</div>
@@ -413,7 +416,7 @@ async function anular(visitaId) {
   try {
     await api(`/api/visitas/${visitaId}/anular`, "POST");
     avisar("Visita anulada.");
-    if (estado.vista === "movimientos") irMovimientos();
+    if (["movimientos", "perfil"].includes(estado.vista)) alVolver();
     else irInicio();
   } catch (e) {
     avisar(e.message, true);
@@ -424,8 +427,11 @@ async function anular(visitaId) {
 
 const FILTROS_VACIOS = { texto: "", desde: "", hasta: "", limite: 50 };
 let filtros = { ...FILTROS_VACIOS };
+// Adónde volver después de tocar un movimiento: la lista o el perfil del cliente.
+let alVolver = () => irMovimientos();
 
 async function irMovimientos() {
+  alVolver = () => irMovimientos();
   try {
     const consulta = new URLSearchParams(filtros);
     const { movimientos, total, hoy } = await api(`/api/movimientos?${consulta}`);
@@ -501,13 +507,13 @@ async function recuperar(visitaId) {
   try {
     await api(`/api/visitas/${visitaId}/recuperar`, "POST");
     avisar("Visita recuperada.");
-    irMovimientos();
+    alVolver();
   } catch (e) {
     avisar(e.message, true);
   }
 }
 
-async function irFormularioMovimiento(m) {
+async function irFormularioMovimiento(m, dni = "") {
   const { hoy } = estado;
   try {
     const { promos } = await api("/api/promos");
@@ -519,7 +525,7 @@ async function irFormularioMovimiento(m) {
         <p class="ayuda-form">Acá no se calculan premios: poné lo que realmente pasó y lo que se cobró. Las rachas se actualizan solas.</p>
         <div class="dos-campos">
           <label class="campo"><span>DNI del cliente</span>
-            <input name="dni" data-foco value="${esc(m?.dni ?? "")}" inputmode="numeric" autocomplete="off" required></label>
+            <input name="dni" data-foco value="${esc(m?.dni ?? dni)}" inputmode="numeric" autocomplete="off" required></label>
           <label class="campo"><span>Fecha de la visita</span>
             <input type="date" name="fecha" value="${esc(m?.fecha ?? hoy)}" max="${hoy}" required></label>
           <label class="campo"><span>Compra en pesos</span>
@@ -568,9 +574,162 @@ async function guardarMovimiento(form) {
     if (form.dataset.id) await api(`/api/movimientos/${form.dataset.id}`, "PUT", datos);
     else await api("/api/movimientos", "POST", datos);
     avisar("Movimiento guardado.");
-    irMovimientos();
+    alVolver();
   } catch (e) {
     form.querySelector("[data-error]").textContent = e.message;
+  }
+}
+
+// Clientes y perfil
+
+const FILTROS_CLIENTES_VACIOS = { texto: "", estado: "", limite: 50 };
+let filtrosClientes = { ...FILTROS_CLIENTES_VACIOS };
+const ESTADOS = { activo: "Activo", en_riesgo: "Por perder la racha", inactivo: "Dejó de venir", sin_visitas: "Sin visitas" };
+const pildora = (e) => `<span class="pildora ${esc(e.clave)}">${esc(e.texto)}</span>`;
+
+async function irClientes() {
+  try {
+    const { clientes, total } = await api(`/api/clientes?${new URLSearchParams(filtrosClientes)}`);
+    const hayFiltros = filtrosClientes.texto || filtrosClientes.estado;
+    mostrar("clientes", `
+      <div class="promos-cabecera">
+        <div>
+          <h1>Clientes</h1>
+          <p>Todos los clientes anotados, empezando por los que vinieron hace menos. Entrá a un perfil para ver toda su información.</p>
+        </div>
+        <button class="boton" data-accion="ir-promos">Volver a Promociones</button>
+      </div>
+      <form class="tarjeta filtros filtros-clientes" data-form="filtro-clientes">
+        <label class="campo"><span>Buscar por nombre o DNI</span>
+          <input name="texto" value="${esc(filtrosClientes.texto)}" autocomplete="off"></label>
+        <label class="campo"><span>Estado</span>
+          <select name="estado"><option value="">Todos</option>
+            ${Object.entries(ESTADOS).map(([clave, texto]) => `<option value="${clave}" ${filtrosClientes.estado === clave ? "selected" : ""}>${texto}</option>`).join("")}
+          </select></label>
+        <div class="filtros-botones">
+          <button class="boton">Buscar</button>
+          ${hayFiltros ? `<button type="button" class="boton discreto" data-accion="ir-clientes">Ver todos</button>` : ""}
+        </div>
+      </form>
+      ${clientes.length ? `
+      <div class="tabla-contenedor tarjeta">
+        <table class="tabla">
+          <thead><tr><th>Cliente</th><th>Estado</th><th>Última visita</th><th class="num">Visitas</th><th class="num">Total comprado</th><th><span class="oculto">Acciones</span></th></tr></thead>
+          <tbody>${clientes.map((c) => `
+            <tr>
+              <td><b>${esc(c.nombre)}</b><br><small>DNI ${esc(conPuntos(c.dni))}</small></td>
+              <td>${pildora(c.estado)}</td>
+              <td>${c.ultima ? fechaCorta(c.ultima) : "—"}</td>
+              <td class="num">${c.visitas}</td>
+              <td class="num">${c.comprado ? pesos(c.comprado) : "—"}</td>
+              <td class="acciones-fila"><button class="boton chica" data-accion="ver-perfil" data-dni="${esc(c.dni)}">Ver perfil</button></td>
+            </tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div class="pie-tabla">
+        <span>Mostrando ${clientes.length} de ${total}</span>
+        ${total > clientes.length ? `<button class="boton" data-accion="mas-clientes">Ver más</button>` : ""}
+      </div>` : `<p class="tarjeta sin-movimientos">${hayFiltros ? "No hay clientes con esa búsqueda." : "Todavía no hay clientes anotados."}</p>`}`);
+  } catch (e) {
+    avisar(e.message, true);
+  }
+}
+
+function filtrarClientes(form) {
+  const f = new FormData(form);
+  filtrosClientes = { texto: f.get("texto").trim(), estado: f.get("estado"), limite: FILTROS_CLIENTES_VACIOS.limite };
+  return irClientes();
+}
+
+function textoUltimaVisita(p) {
+  if (!p.ultima_visita) return "Todavía no vino";
+  if (p.dias_sin_venir === 0) return "Hoy";
+  if (p.dias_sin_venir === 1) return "Ayer";
+  return `Hace ${p.dias_sin_venir} días (${fechaCorta(p.ultima_visita)})`;
+}
+
+function textoCumple(p) {
+  const { cumple_dia: dia, cumple_mes: mes } = p.cliente;
+  const falta = p.dias_para_cumple === 0 ? "¡es hoy!" : p.dias_para_cumple === 1 ? "es mañana" : `faltan ${p.dias_para_cumple} días`;
+  return `${dia} de ${MESES[mes - 1]} (${falta})`;
+}
+
+async function irPerfil(dni) {
+  alVolver = () => irPerfil(dni);
+  try {
+    const p = await api(`/api/clientes/${dni}/perfil`);
+    const { cliente, racha } = p;
+    const dato = (titulo, valor) => `<div><dt>${titulo}</dt><dd>${valor}</dd></div>`;
+    const cifra = (titulo, valor) => `<div class="medidor"><h3>${titulo}</h3><div class="cifra chica">${valor}</div></div>`;
+    const sinMonto = p.total_visitas - p.con_monto;
+    mostrar("perfil", `
+      <div class="promos-cabecera">
+        <div>
+          <h1>${esc(cliente.nombre)}</h1>
+          <p>${pildora(p.estado)}</p>
+        </div>
+        <div class="filtros-botones">
+          <button class="boton" data-accion="ir-clientes-volver">Volver a Clientes</button>
+          <button class="boton" data-accion="editar-cliente">Cambiar datos</button>
+        </div>
+      </div>
+      <div class="medidores cuatro">
+        ${cifra("Visitas", p.total_visitas)}
+        ${cifra("Total comprado", pesos(p.comprado))}
+        ${cifra("Total ahorrado", pesos(p.ahorrado))}
+        ${cifra("Compra promedio", p.promedio ? pesos(p.promedio) : "—")}
+      </div>
+      ${sinMonto > 0 ? `<p class="nota-perfil">${sinMonto === 1 ? "1 visita no tiene" : `${sinMonto} visitas no tienen`} monto cargado y no ${sinMonto === 1 ? "suma" : "suman"} en estos totales.</p>` : ""}
+      <div class="perfil-grilla">
+        <section class="tarjeta">
+          <h2>Datos</h2>
+          <dl class="datos">
+            ${dato("DNI", esc(conPuntos(cliente.dni)))}
+            ${dato("Cumpleaños", esc(textoCumple(p)))}
+            ${dato("Teléfono", esc(cliente.telefono) || "—")}
+            ${dato("Anotado el", fechaCorta(cliente.consentimiento))}
+          </dl>
+        </section>
+        <section class="tarjeta">
+          <h2>Estado</h2>
+          <dl class="datos">
+            ${dato("Última visita", esc(textoUltimaVisita(p)))}
+            ${dato("Primera visita", p.primera_visita ? fechaCorta(p.primera_visita) : "—")}
+            ${dato("Racha acumulada", `${racha.semanas} ${racha.semanas === 1 ? "semana" : "semanas"}${racha.en_riesgo ? " (se corta si no viene esta semana)" : ""}`)}
+            ${dato("Visitas esta semana", p.visitas_semana)}
+          </dl>
+        </section>
+        <section class="tarjeta">
+          <h2>Beneficios</h2>
+          <dl class="datos">
+            ${dato("En su próxima visita", p.hoy_tiene.length ? p.hoy_tiene.map((b) => esc(b.descripcion)).join("<br>") : "Sin premio")}
+            ${dato("Próximo premio", p.proxima ? `${esc(p.proxima.frase)}: ${esc(p.proxima.beneficio)}` : "—")}
+          </dl>
+        </section>
+        <section class="tarjeta">
+          <h2>Beneficios usados</h2>
+          ${p.beneficios_usados.length ? `<dl class="datos">
+            ${p.beneficios_usados.map((u) => dato(esc(u.nombre), `${u.veces} ${u.veces === 1 ? "vez" : "veces"}, la última el ${fechaCorta(u.ultima)}`)).join("")}
+          </dl>` : `<p class="sin-datos">Todavía no usó ninguno.</p>`}
+        </section>
+      </div>
+      <div class="promos-cabecera perfil-movimientos">
+        <h2>Últimos movimientos</h2>
+        <div class="filtros-botones">
+          ${p.total > p.movimientos.length ? `<button class="boton" data-accion="movimientos-de" data-dni="${esc(cliente.dni)}">Ver todos (${p.total})</button>` : ""}
+          <button class="boton" data-accion="nuevo-movimiento-de" data-dni="${esc(cliente.dni)}">+ Cargar una visita olvidada</button>
+        </div>
+      </div>
+      ${p.movimientos.length ? `
+      <div class="tabla-contenedor tarjeta">
+        <table class="tabla">
+          <thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Compra</th><th class="num">Descuento</th><th class="num">Cobrado</th><th>Beneficio</th><th><span class="oculto">Acciones</span></th></tr></thead>
+          <tbody>${p.movimientos.map(filaMovimiento).join("")}</tbody>
+        </table>
+      </div>` : `<p class="tarjeta sin-movimientos">Todavía no tiene movimientos.</p>`}`,
+      { perfil: p, movimientos: p.movimientos, hoy: p.hoy });
+  } catch (e) {
+    avisar(e.message, true);
   }
 }
 
@@ -605,10 +764,19 @@ async function irPromos(abierta = null) {
       <section class="seccion-promos">
         <div class="promos-cabecera">
           <div>
-            <h1>Movimientos</h1>
-            <p>Solo para el negocio. Todas las visitas registradas, para corregir errores o cargar una que quedó sin registrar.</p>
+            <h1>Solo para el negocio</h1>
+            <p>Esto tiene datos personales: abrilo cuando el cliente no esté mirando la pantalla.</p>
           </div>
-          <button class="boton" data-accion="ir-movimientos">Ver movimientos</button>
+        </div>
+        <div class="lista-promos">
+          <article class="promo prendida"><div class="promo-fila">
+            <div class="promo-texto"><h2>Clientes</h2><p>La lista de clientes y el perfil de cada uno, con sus datos, su estado y sus compras.</p></div>
+            <button class="boton" data-accion="ir-clientes">Ver clientes</button>
+          </div></article>
+          <article class="promo prendida"><div class="promo-fila">
+            <div class="promo-texto"><h2>Movimientos</h2><p>Todas las visitas registradas, para corregir errores o cargar una que quedó sin registrar.</p></div>
+            <button class="boton" data-accion="ir-movimientos">Ver movimientos</button>
+          </div></article>
         </div>
       </section>`, { promos, mecanismos, generales });
     const form = document.querySelector('[data-form="promo"], [data-form="general"]');
@@ -889,7 +1057,7 @@ const acciones = {
     filtros = { ...FILTROS_VACIOS };
     return irMovimientos();
   },
-  "volver-movimientos": () => irMovimientos(),
+  "volver-movimientos": () => alVolver(),
   "mas-movimientos": () => {
     filtros.limite += FILTROS_VACIOS.limite;
     return irMovimientos();
@@ -898,7 +1066,22 @@ const acciones = {
   "editar-movimiento": (b) => irFormularioMovimiento(estado.movimientos.find((m) => m.id === Number(b.dataset.visita))),
   "recuperar": (b) => recuperar(Number(b.dataset.visita)),
   "ir-alta": (b) => irFormularioCliente(null, b.dataset.dni ?? digitos(document.getElementById("entrada")?.value ?? "")),
-  "editar-cliente": () => irFormularioCliente(estado.ficha.cliente),
+  "editar-cliente": () => irFormularioCliente(estado.perfil.cliente),
+  "ir-clientes": () => {
+    filtrosClientes = { ...FILTROS_CLIENTES_VACIOS };
+    return irClientes();
+  },
+  "ir-clientes-volver": () => irClientes(),
+  "mas-clientes": () => {
+    filtrosClientes.limite += FILTROS_CLIENTES_VACIOS.limite;
+    return irClientes();
+  },
+  "ver-perfil": (b) => irPerfil(b.dataset.dni),
+  "movimientos-de": (b) => {
+    filtros = { ...FILTROS_VACIOS, texto: b.dataset.dni };
+    return irMovimientos();
+  },
+  "nuevo-movimiento-de": (b) => irFormularioMovimiento(null, b.dataset.dni),
   "sumar-visita": () => sumarVisita(),
   "volver-ficha": () => irFicha(estado.ficha),
   "confirmar": () => confirmarVisita(estado.ficha, estado.monto),
@@ -921,6 +1104,7 @@ const formularios = {
   promo: guardarPromo,
   movimiento: guardarMovimiento,
   "filtro-movimientos": filtrarMovimientos,
+  "filtro-clientes": filtrarClientes,
 };
 
 // Evita doble registro si alguien toca dos veces el mismo botón.
@@ -973,5 +1157,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 document.addEventListener("pointerdown", reiniciarTemporizador);
+document.addEventListener("wheel", reiniciarTemporizador, { passive: true });
 
 irInicio();

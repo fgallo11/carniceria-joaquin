@@ -103,6 +103,25 @@ def calcular_racha(fechas, hoy):
     return {"semanas": total, "en_riesgo": atraso == 2}
 
 
+def estado_cliente(ultima, hoy):
+    """Mismo criterio que la racha: dos semanas seguidas sin venir la cortan."""
+    if ultima is None:
+        return {"clave": "sin_visitas", "texto": "Sin visitas"}
+    atraso = (lunes(hoy) - lunes(ultima)).days // 7
+    if atraso <= 1:
+        return {"clave": "activo", "texto": "Activo"}
+    if atraso == 2:
+        return {"clave": "en_riesgo", "texto": "Por perder la racha"}
+    return {"clave": "inactivo", "texto": "Dejó de venir"}
+
+
+def dias_para_cumple(mes, dia, hoy):
+    cumple = _cumple_del_anio(hoy.year, mes, dia)
+    if cumple < hoy:
+        cumple = _cumple_del_anio(hoy.year + 1, mes, dia)
+    return (cumple - hoy).days
+
+
 def visitas_de_la_semana(fechas, hoy):
     return sum(1 for f in fechas if lunes(f) == lunes(hoy))
 

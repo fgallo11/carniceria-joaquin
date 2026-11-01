@@ -259,6 +259,7 @@ svg.icono { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: r
 
 /* Pestaña Movimientos */
 .filtros { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; margin-bottom: 16px; padding: 16px 20px; }
+.filtros-clientes { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
 .filtros .campo { margin: 0; }
 .filtros-botones { display: flex; gap: 8px; }
 .filtros-botones .boton { min-height: 54px; }
@@ -279,6 +280,26 @@ svg.icono { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: r
 .ayuda-form { margin: -8px 0 18px; color: var(--tinta-suave); }
 .cobrado { margin-bottom: 16px; padding: 10px 16px; background: var(--celeste-claro); border-radius: 8px; font-size: 24px; }
 
+/* Perfil del cliente */
+.pildora { display: inline-block; padding: 3px 14px; border-radius: 99px; font-size: 17px; font-weight: 700; white-space: nowrap; }
+.pildora.activo { background: var(--celeste); color: var(--negro); }
+.pildora.en_riesgo { background: var(--rojo); color: var(--blanco); }
+.pildora.inactivo { background: var(--negro); color: var(--blanco); }
+.pildora.sin_visitas { background: #dfe7ec; color: var(--tinta); }
+.medidores.cuatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.medidor .cifra.chica { font-size: 40px; overflow-wrap: anywhere; }
+.nota-perfil { margin: -6px 0 16px; color: var(--tinta-suave); font-size: 17px; }
+.perfil-grilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.perfil-grilla .tarjeta { padding: 18px 22px; }
+.perfil-grilla h2 { margin-bottom: 8px; font-size: 26px; color: var(--celeste-oscuro); }
+.datos { margin: 0; }
+.datos > div { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--linea); font-size: 18px; line-height: 1.3; }
+.datos dt { color: var(--tinta-suave); }
+.datos dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.sin-datos { color: var(--tinta-suave); }
+.perfil-movimientos { align-items: center; margin-bottom: 12px; }
+.perfil-movimientos h2 { font-size: 30px; }
+
 .aviso {
   position: fixed;
   left: 50%;
@@ -298,7 +319,8 @@ svg.icono { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: r
 @media (max-width: 900px) {
   main { padding: 16px; }
   .cabecera { padding: 8px 16px; }
-  .inicio, .medidores, .dos-campos, .filtros { grid-template-columns: minmax(0, 1fr); }
+  .inicio, .medidores, .medidores.cuatro, .dos-campos, .filtros, .filtros-clientes, .perfil-grilla { grid-template-columns: minmax(0, 1fr); }
+  .datos > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .dni-fila { flex-wrap: wrap; }
   .dni-fila .boton { flex: 1 1 100%; }
   .fila.total b { font-size: 48px; }

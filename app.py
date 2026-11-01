@@ -368,6 +368,52 @@ class Programa:
             "proxima": reglas.proxima_promo(promos, h, excluir=hoy_tiene),
         }
 
+    def clientes(self, texto="", estado="", limite=50):
+        condicion, valores = _filtro_texto(texto)
+        filas = self.db.execute(
+            "SELECT c.id, c.dni, c.nombre, COUNT(v.id) AS visitas, MAX(v.fecha) AS ultima,"
+            " COALESCE(SUM(v.final), 0) AS comprado"
+            " FROM clientes c LEFT JOIN visitas v ON v.cliente_id = c.id AND v.anulada = 0"
+            f" {'WHERE ' + condicion if condicion else ''} GROUP BY c.id"
+            " ORDER BY ultima IS NULL, ultima DESC, c.nombre", valores).fetchall()
+        hoy = self.hoy()
+        lista = []
+        for fila in filas:
+            ultima = date.fromisoformat(fila["ultima"]) if fila["ultima"] else None
+            lista.append({**dict(fila), "estado": reglas.estado_cliente(ultima, hoy)})
+        if estado:
+            lista = [c for c in lista if c["estado"]["clave"] == estado]
+        return {"clientes": lista[:limite], "total": len(lista)}
+
+    def perfil(self, dni):
+        ficha = self.ficha_por_dni(dni)
+        cliente_id, hoy = ficha["cliente"]["id"], self.hoy()
+        fechas = self._historial(ficha["cliente"]).fechas
+        ultima = max(fechas) if fechas else None
+        cuentas = self.db.execute(
+            "SELECT COALESCE(SUM(final), 0) AS comprado, COALESCE(SUM(descuento), 0) AS ahorrado,"
+            " COUNT(monto) AS con_monto, AVG(monto) AS promedio"
+            " FROM visitas WHERE cliente_id=? AND anulada=0", (cliente_id,)).fetchone()
+        usados = self.db.execute(
+            "SELECT p.nombre, COUNT(*) AS veces, MAX(v.fecha) AS ultima"
+            " FROM beneficios_usados b JOIN visitas v ON v.id = b.visita_id JOIN promos p ON p.id = b.promo_id"
+            " WHERE v.cliente_id=? AND v.anulada=0 GROUP BY p.id ORDER BY ultima DESC", (cliente_id,)).fetchall()
+        return {
+            **ficha,
+            **self.movimientos(cliente_id=cliente_id, limite=10),
+            "estado": reglas.estado_cliente(ultima, hoy),
+            "primera_visita": min(fechas).isoformat() if fechas else None,
+            "ultima_visita": ultima.isoformat() if ultima else None,
+            "dias_sin_venir": (hoy - ultima).days if ultima else None,
+            "dias_para_cumple": reglas.dias_para_cumple(
+                ficha["cliente"]["cumple_mes"], ficha["cliente"]["cumple_dia"], hoy),
+            "comprado": cuentas["comprado"],
+            "ahorrado": cuentas["ahorrado"],
+            "con_monto": cuentas["con_monto"],
+            "promedio": round(cuentas["promedio"]) if cuentas["promedio"] else 0,
+            "beneficios_usados": [dict(u) for u in usados],
+        }
+
     # Visitas
 
     def _liquidacion(self, cliente, monto):
@@ -426,13 +472,13 @@ class Programa:
 
     # Movimientos
 
-    def movimientos(self, texto="", desde=None, hasta=None, limite=50):
+    def movimientos(self, texto="", desde=None, hasta=None, limite=50, cliente_id=None):
         desde, hasta = _fechas({"desde": desde, "hasta": hasta})
-        condiciones, valores = [], []
-        texto = texto.strip()
-        if texto:
-            condiciones.append("(c.nombre LIKE ? OR c.dni LIKE ?)")
-            valores += [f"%{texto}%", f"%{re.sub(r'[^0-9]', '', texto) or texto}%"]
+        condicion, valores = _filtro_texto(texto)
+        condiciones = [condicion] if condicion else []
+        if cliente_id is not None:
+            condiciones.append("c.id = ?")
+            valores.append(cliente_id)
         if desde:
             condiciones.append("v.fecha >= ?")
             valores.append(desde)
@@ -535,6 +581,13 @@ def _numero(valor, nombre):
     return numero
 
 
+def _filtro_texto(texto):
+    texto = texto.strip()
+    if not texto:
+        return "", []
+    return "(c.nombre LIKE ? OR c.dni LIKE ?)", [f"%{texto}%", f"%{re.sub(r'[^0-9]', '', texto) or texto}%"]
+
+
 def _fechas(datos):
     desde, hasta = datos.get("desde") or None, datos.get("hasta") or None
     for texto in (desde, hasta):
@@ -600,6 +653,15 @@ def crear_manejador(programa, puerto):
                     return p.movimientos(
                         q.get("texto", [""])[0], q.get("desde", [None])[0], q.get("hasta", [None])[0],
                         min(int(limite), 2000) if limite.isdigit() else 50)
+                if ruta == "/api/clientes":
+                    q = parse_qs(urlsplit(self.path).query)
+                    limite = q.get("limite", ["50"])[0]
+                    return p.clientes(
+                        q.get("texto", [""])[0], q.get("estado", [""])[0],
+                        min(int(limite), 2000) if limite.isdigit() else 50)
+                m = re.fullmatch(r"/api/clientes/(\d+)/perfil", ruta)
+                if m:
+                    return p.perfil(m[1])
                 m = re.fullmatch(r"/api/clientes/(\d+)", ruta)
                 if m:
                     return p.ficha_por_dni(m[1])

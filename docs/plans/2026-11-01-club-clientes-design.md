@@ -16,7 +16,7 @@ Que los clientes vuelvan más seguido, premiando las visitas. Lo usan en el most
 
 DNI → ficha → sumar visita → monto. Si hay beneficio: descuento e importe final → confirmar. Si no hay: se registra y aparece el cartel con la promoción alcanzable más cercana.
 
-Los movimientos se ven al final de Promociones, no en la navegación principal, porque son solo para el negocio.
+Los clientes, sus perfiles y los movimientos se ven al final de Promociones, no en la navegación principal, porque son solo para el negocio. La ficha que ve el cliente no muestra DNI ni teléfono, ni permite cambiar datos.
 
 ## Promociones
 
