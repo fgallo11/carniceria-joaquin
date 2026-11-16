@@ -5,6 +5,11 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a publicar, por ejemplo v0.1.2. Vacío: solo prueba y arma el paquete."
+        required: false
+        default: ""
 
 jobs:
   probar-y-armar:
@@ -35,7 +40,7 @@ jobs:
           if-no-files-found: error
 
   publicar:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.version, 'v') && github.ref == 'refs/heads/main')
     needs: probar-y-armar
     runs-on: ubuntu-latest
     permissions:
@@ -47,10 +52,12 @@ jobs:
       - name: Crear la versión
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
         run: |
           mv "Club Carniceria Joaquin.zip" ClubCarniceriaJoaquin.zip
           mv "Club Carniceria Joaquin (Windows 7).zip" ClubCarniceriaJoaquin-Windows7.zip
-          gh release create "$GITHUB_REF_NAME" ClubCarniceriaJoaquin.zip ClubCarniceriaJoaquin-Windows7.zip \
+          gh release create "$VERSION" ClubCarniceriaJoaquin.zip ClubCarniceriaJoaquin-Windows7.zip \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Club Carnicería Joaquín $GITHUB_REF_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "Club Carnicería Joaquín $VERSION" \
             --notes "Para Windows 10 u 11 de 64 bits: ClubCarniceriaJoaquin.zip. Para Windows 7 SP1 de 64 bits: ClubCarniceriaJoaquin-Windows7.zip. No hace falta instalar Python. Descargá el que corresponda, extraelo en una carpeta propia, como C:\\Club Carniceria Joaquin, y seguí los pasos de LEEME.txt. Al actualizar, conservá la carpeta datos."

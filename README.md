@@ -60,7 +60,7 @@ Cada día se guarda una copia en `datos/copias/` y se conservan las últimas 30.
 python3 -m unittest discover -s tests
 ```
 
-GitHub Actions corre las pruebas, arma el paquete y lo abre en Windows con cada cambio en `main`. Para publicar una versión, se crea y se sube una etiqueta `vX.Y.Z`.
+GitHub Actions corre las pruebas, arma el paquete y lo abre en Windows con cada cambio en `main`. Para publicar una versión, se crea y se sube una etiqueta `vX.Y.Z`, o en GitHub: Actions > Probar y publicar para Windows > Run workflow, en `main`, con la versión (por ejemplo `v0.1.2`).
 
 - `reglas.py`: rachas, promociones y cálculos.
 - `app.py`: servidor local y base de datos SQLite.
