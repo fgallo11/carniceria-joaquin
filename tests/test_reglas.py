@@ -186,8 +186,21 @@ class Proxima(unittest.TestCase):
         domingo = date(2026, 11, 8)
         h = Historial(hoy=domingo, fechas=[domingo])
         p = reglas.proxima_promo([promo("visitas_semana", n=3)], h)
-        self.assertIn("en una misma semana", p["frase"])
+        self.assertIn("La semana que viene, vení 3 veces", p["frase"])
         self.assertEqual(p["dias"], 3)
+
+    def test_el_domingo_si_falta_una_visita_puede_volver_hoy(self):
+        domingo = date(2026, 11, 15)
+        promos = [promo("visitas_semana", id=1, valor=5, n=2), promo("visitas_semana", id=2, n=3)]
+        p = reglas.proxima_promo(promos, Historial(hoy=domingo, fechas=[domingo, domingo]))
+        self.assertEqual((p["frase"], p["beneficio"], p["dias"]),
+                         ("Te falta 1 visita esta semana: podés volver hoy", "10% de descuento", 0))
+
+    def test_con_los_premios_de_la_semana_ganados_propone_la_siguiente(self):
+        domingo = date(2026, 11, 15)
+        promos = [promo("visitas_semana", id=1, valor=5, n=2), promo("visitas_semana", id=2, n=3)]
+        p = reglas.proxima_promo(promos, Historial(hoy=domingo, fechas=[domingo] * 3))
+        self.assertEqual(p["frase"], "La semana que viene, vení 2 veces")
 
     def test_sin_promos_activas(self):
         h = Historial(hoy=MIERCOLES)

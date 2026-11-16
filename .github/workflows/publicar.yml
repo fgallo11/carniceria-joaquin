@@ -22,10 +22,16 @@ jobs:
         run: python armar_paquete_windows.py
       - name: Abrir el paquete en Windows
         run: python tests/humo_windows.py "dist/Club Carniceria Joaquin.zip"
+      - name: Armar el paquete para Windows 7
+        run: python armar_paquete_windows.py --windows7
+      - name: Abrir el paquete para Windows 7 (con su Python 3.8)
+        run: python tests/humo_windows.py "dist/Club Carniceria Joaquin (Windows 7).zip"
       - uses: actions/upload-artifact@v4
         with:
           name: paquete
-          path: dist/Club Carniceria Joaquin.zip
+          path: |
+            dist/Club Carniceria Joaquin.zip
+            dist/Club Carniceria Joaquin (Windows 7).zip
           if-no-files-found: error
 
   publicar:
@@ -43,7 +49,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mv "Club Carniceria Joaquin.zip" ClubCarniceriaJoaquin.zip
-          gh release create "$GITHUB_REF_NAME" ClubCarniceriaJoaquin.zip \
+          mv "Club Carniceria Joaquin (Windows 7).zip" ClubCarniceriaJoaquin-Windows7.zip
+          gh release create "$GITHUB_REF_NAME" ClubCarniceriaJoaquin.zip ClubCarniceriaJoaquin-Windows7.zip \
             --repo "$GITHUB_REPOSITORY" \
             --title "Club Carnicería Joaquín $GITHUB_REF_NAME" \
-            --notes "Para Windows 10 u 11 de 64 bits. No hace falta instalar Python. Descargá ClubCarniceriaJoaquin.zip, extraelo en una carpeta propia, como C:\\Club Carniceria Joaquin, y seguí los pasos de LEEME.txt. Al actualizar, conservá la carpeta datos."
+            --notes "Para Windows 10 u 11 de 64 bits: ClubCarniceriaJoaquin.zip. Para Windows 7 SP1 de 64 bits: ClubCarniceriaJoaquin-Windows7.zip. No hace falta instalar Python. Descargá el que corresponda, extraelo en una carpeta propia, como C:\\Club Carniceria Joaquin, y seguí los pasos de LEEME.txt. Al actualizar, conservá la carpeta datos."

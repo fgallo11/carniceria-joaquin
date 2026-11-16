@@ -330,7 +330,10 @@ def _estimar(promo, h):
         falta = n - hechas
         if falta > 0 and inicio + timedelta(days=falta - 1) <= domingo:
             return inicio + timedelta(days=falta - 1), f"Te {_faltan(falta, 'visita', 'visitas')} esta semana"
-        return prox_lunes + timedelta(days=n - 1), f"Vení {_plural(n, 'vez', 'veces')} en una misma semana"
+        if falta == 1:
+            # Varias visitas en un día cuentan: si solo falta una, puede volver hoy mismo.
+            return h.hoy, "Te falta 1 visita esta semana: podés volver hoy"
+        return prox_lunes + timedelta(days=n - 1), f"La semana que viene, vení {_plural(n, 'vez', 'veces')}"
     if tipo == "racha_semanal":
         n = params["n"]
         semanas = calcular_racha(h.fechas, h.hoy)["semanas"]

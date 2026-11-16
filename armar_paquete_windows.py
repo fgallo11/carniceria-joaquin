@@ -1,6 +1,7 @@
 """Arma un .zip listo para la PC del negocio, con su propio Python portátil.
 
 Se puede correr desde Linux. Descarga el Python oficial para Windows la primera vez.
+Con --windows7 arma el paquete para Windows 7 SP1, con Python 3.8: el último que funciona ahí.
 """
 import sys
 import urllib.request
@@ -9,8 +10,7 @@ from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
 VERSION_PYTHON = "3.13.13"
-NOMBRE_PYTHON = f"python-{VERSION_PYTHON}-embed-amd64.zip"
-URL_PYTHON = f"https://www.python.org/ftp/python/{VERSION_PYTHON}/{NOMBRE_PYTHON}"
+VERSION_PYTHON_WINDOWS7 = "3.8.10"
 CARPETA = "Club Carniceria Joaquin"
 
 LEEME = """Club de clientes de Carniceria Joaquin
@@ -30,13 +30,18 @@ Al actualizar el programa, conservar esa carpeta.
 """
 
 
-def bajar_python(destino):
+def nombre_python(version):
+    return f"python-{version}-embed-amd64.zip"
+
+
+def bajar_python(version, destino):
     if destino.exists():
         return
     destino.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Descargando {URL_PYTHON}")
+    url = f"https://www.python.org/ftp/python/{version}/{nombre_python(version)}"
+    print(f"Descargando {url}")
     temporal = destino.with_suffix(".parcial")
-    with urllib.request.urlopen(URL_PYTHON) as respuesta, open(temporal, "wb") as archivo:
+    with urllib.request.urlopen(url) as respuesta, open(temporal, "wb") as archivo:
         while bloque := respuesta.read(1 << 16):
             archivo.write(bloque)
     temporal.replace(destino)
@@ -62,9 +67,12 @@ def armar(python_zip, salida):
 
 
 def main():
-    python_zip = BASE / "dist" / "descargas" / NOMBRE_PYTHON
-    bajar_python(python_zip)
-    salida = armar(python_zip, BASE / "dist" / f"{CARPETA}.zip")
+    windows7 = "--windows7" in sys.argv[1:]
+    version = VERSION_PYTHON_WINDOWS7 if windows7 else VERSION_PYTHON
+    python_zip = BASE / "dist" / "descargas" / nombre_python(version)
+    bajar_python(version, python_zip)
+    nombre = f"{CARPETA} (Windows 7).zip" if windows7 else f"{CARPETA}.zip"
+    salida = armar(python_zip, BASE / "dist" / nombre)
     print(f"Listo: {salida} ({salida.stat().st_size // 1_000_000} MB)")
 
 
