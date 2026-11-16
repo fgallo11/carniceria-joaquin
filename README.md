@@ -10,6 +10,8 @@ Necesita Windows 10 u 11 de 64 bits. No hace falta instalar Python ni Git.
 2. Extraela en una carpeta propia, por ejemplo `C:\Club Carniceria Joaquin`. No uses "Archivos de programa".
 3. Hacé clic derecho en `Abrir Club de Clientes` > Enviar a > Escritorio (crear acceso directo).
 
+**Windows 7:** la versión común no funciona ahí (falta `api-ms-win-core-path-l1-1-0.dll`). Hay un paquete aparte para Windows 7 SP1 de 64 bits, con Python 3.8: [ClubCarniceriaJoaquin-Windows7.zip](https://github.com/fgallo11/carniceria-joaquin/releases/latest/download/ClubCarniceriaJoaquin-Windows7.zip). Se instala igual. Si al abrirlo falta un archivo `api-ms-win-crt-...dll`, hay que instalar el "Visual C++ Redistributable x64" de Microsoft. Windows 7 ya no recibe actualizaciones de seguridad: en esa PC, copiar la carpeta `datos` seguido es obligatorio.
+
 La primera vez, Windows o el antivirus pueden mostrar un aviso porque el programa no está firmado. Se sigue con "Más información" y "Ejecutar de todos modos".
 
 Para actualizar, extraé la versión nueva en la misma carpeta y aceptá reemplazar los archivos. **No borres la carpeta `datos`**: ahí están los clientes, y el `.zip` no la incluye.
